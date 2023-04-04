@@ -95,10 +95,11 @@ class ASLRecognition:
 
     def __init__(self):
         # dataset_dir = os.path.abspath('/Users/daqian.dang/Desktop/DATS 6303/Project/dataset5/')
-        DATA_DIR = r"C:\Users\Rajkumar\Downloads\ASL\dataset5\collated"
+        # DATA_DIR = r"C:\Users\Rajkumar\Downloads\ASL\dataset5\collated"
+        DATA_DIR = r"/home/ubuntu/ASL_Data/dataset5/collated"
         NUM_WORKERS = 8
-        PREFETCH_FACTOR = 2
-        self.BATCH_SIZE = 32
+        PREFETCH_FACTOR = 3
+        self.BATCH_SIZE = 200
         self.LR = 1e-3
         self.N_EPOCHS = 10
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -175,7 +176,7 @@ class ASLRecognition:
 
     def fit(self):
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.LR)
-        criterion = torch.nn.CrossEntropyLoss()
+        criterion = torch.nn.CrossEntropyLoss().cuda()
         acc = Accuracy(task='multiclass', num_classes=self.N_CLASSES).to(self.device)
         print("Starting training loop...")
         for epoch in range(self.N_EPOCHS):
@@ -187,7 +188,7 @@ class ASLRecognition:
                 y_train = y_train.to(self.device)
                 optimizer.zero_grad()
                 tr_logits = self.model(X_train)
-                loss = criterion(tr_logits, y_train)
+                loss = criterion(tr_logits.to(self.device), y_train.to(self.device))
                 loss.backward()
                 optimizer.step()
                 loss_train += loss.item()
@@ -200,7 +201,7 @@ class ASLRecognition:
                     X_val = X_val.to(self.device)
                     y_val = y_val.to(self.device)
                     vl_logits = self.model(X_val)
-                    loss = criterion(vl_logits, y_val)
+                    loss = criterion(vl_logits.to(self.device), y_val.to(self.device))
                     loss_val += loss.item()
 
             print("Epoch {} | Train Loss {:.5f}, Train Acc {:.2f} - Test Loss {:.5f}, Test Acc {:.2f}".format(
