@@ -5,7 +5,8 @@ import numpy as np
 from shutil import *
 
 #%%
-DATA_DIR = r"C:\Users\Rajkumar\Downloads\ASL\dataset5"
+# DATA_DIR = r"C:\Users\Rajkumar\Downloads\ASL\dataset5"
+DATA_DIR = r"/home/ubuntu/ASL_Data/dataset5"
 COLLATED_DIR = join(DATA_DIR, "collated")
 #%%
 if "collated" in os.listdir(DATA_DIR):
@@ -14,6 +15,7 @@ if "collated" in os.listdir(DATA_DIR):
 os.mkdir(COLLATED_DIR)
 
 subjects = os.listdir(DATA_DIR)
+subjects = list(filter(lambda x: x != "collated", subjects))
 max_len = 100000
 for subject in subjects:
     subject_folder = f"{DATA_DIR}{os.path.sep}{subject}"
