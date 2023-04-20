@@ -79,6 +79,7 @@ class ASLRecognition:
 
     def __init__(self):
         # dataset_dir = os.path.abspath('/Users/daqian.dang/Desktop/DATS 6303/Project/dataset5/')
+        
         DATA_DIR = r"D:/GWU/DATS-6303/project/archive/dataset5/collated"
         # DATA_DIR = r"/home/ubuntu/ASL_Data/dataset5/collated"
         NUM_WORKERS = 8
@@ -89,7 +90,9 @@ class ASLRecognition:
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.le = LabelEncoder()
         self.IMG_SIZE = 100
-
+        self.filename = "model_optimization_X.pt"
+        self.SAVE_DIR = f"D:/GWU/DATS-6303/project/saved_models/{self.filename}"
+        
         train_transforms = transforms.Compose([
             transforms.Resize((self.IMG_SIZE, self.IMG_SIZE), interpolation=INTERPOLATION_MODE), #resize 224*224
             transforms.RandomHorizontalFlip(), #random horizontal flip
@@ -170,14 +173,16 @@ class ASLRecognition:
         optimizer = torch.optim.Adam(model.parameters(), lr=self.LR)
         criterion = torch.nn.CrossEntropyLoss().cuda()
         acc = Accuracy(task='multiclass', num_classes=self.N_CLASSES).to(self.device)
+        # f1_macro = F1Score(task='multiclass', num_classes=self.N_CLASSES, average='macro').to(self.device)
         
         # Initialize test loss threshold for early stopping and parameters to track *****
         scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=3, verbose=True) # I think mode should be min for loss?
         early_stopping_patience = 20
         current_patience = early_stopping_patience
         early_stoping_sensitivity = 4
-        best_test_loss = round(1000000., early_stoping_sensitivity) # made this arbitrarily large so that the first round of training should always succeed
-        current_learning_rate = self.LR
+        best_validation_loss = round(1000000., early_stoping_sensitivity) # made this arbitrarily large so that the first round of training should always succeed
+        # current_learning_rate = self.LR
+        best_validation_score = 0.0000000001
         #***** 
         
         print("Starting training loop...")
@@ -205,20 +210,26 @@ class ASLRecognition:
                     vl_logits = model(imgs)
                     loss = criterion(vl_logits, vl_labels)
                     loss_val += loss.item()
-            print("Epoch {} | Train Loss {:.5f}, Train Acc {:.4f} - Validation Loss {:.5f}, Validation Acc {:.4f}".format(
-                epoch, loss_train / self.BATCH_SIZE, acc(torch.argmax(torch.nn.Softmax(dim=1)(tr_logits), axis=1), tr_labels),
-                loss_val, acc(torch.argmax(torch.nn.Softmax(dim=1)(vl_logits), axis=1), vl_labels)))
-        
+            
+            # Get evaluation metrics for printing
+            tr_preds = torch.argmax(torch.nn.Softmax(dim=1)(tr_logits), axis=1)
+            val_preds = torch.argmax(torch.nn.Softmax(dim=1)(vl_logits), axis=1)
+            acc_tr = acc(tr_preds, tr_labels)
+            acc_val = acc(val_preds, vl_labels)
+            train_loss_batch = round(loss_train / self.BATCH_SIZE, 5)
+            val_loss_batch = round(loss_val / self.BATCH_SIZE, 5)
+            
+            print(f"Epoch {epoch+1} | Train Loss {train_loss_batch}, Train Acc {acc_tr} - Validation Loss {val_loss_batch}, Validation Acc {acc_val}")
         
             # EARLY STOPPING and LEARNING RATE SCHEDULING *****
             # Check if the loss is going down
-            if round(loss_val, early_stoping_sensitivity) >= best_test_loss:
+            if round(loss_val, early_stoping_sensitivity) >= best_validation_loss:
                 # If loss not decerasing, remove one level of patience and drop learning rate
                 current_patience -=1
                 print(f"early stopping validation loss check activated, early stopping patience remaing: {current_patience}")
             else:
                 # If loss is decreasing, update lowest loss and reset ES patience
-                best_test_loss = loss_val
+                best_validation_loss = loss_val
                 current_patience = early_stopping_patience
             
             # If ES patience exhausted, stop training and print ES message
@@ -230,7 +241,13 @@ class ASLRecognition:
             # Include LR scheduler *****
             scheduler.step(loss_val)
             #*****
-        
+
+            # Saving best performing model *****
+            if acc_val > best_validation_score or acc_val == 1.0000 and acc_tr == 1.0000:
+                torch.save(model.state_dict(), self.SAVE_DIR)
+                print("**Model Saved**")
+            # *****
+                
         print(f"Total time taken: {time()-start_time}")
         
     def test(self, model):
@@ -268,5 +285,37 @@ if __name__ == "__main__":
     model = asl.model_def()
     asl.fit(model)
     asl.test(model)
+
+#%%
+
+####################
+## CODE GRAVEYARD ##
+####################
+
+# # Get evaluation metrics for printing
+# tr_preds_array = []
+# tr_labels_array = []
+# val_preds_array = []
+# val_labels_array = []
+# # Get torch of predictions
+# tr_preds = torch.argmax(torch.nn.Softmax(dim=1)(tr_logits), axis=1)
+# val_preds = torch.argmax(torch.nn.Softmax(dim=1)(vl_logits), axis=1)
+# # Send prediction torches to numpy
+# tr_preds_np = np.argmax(tr_preds.cpu().detach().numpy())
+# val_preds_np = np.argmax(val_preds.cpu().detach().numpy())
+# # Create prediction and target arrays
+# tr_preds_array = np.r_[tr_preds_array, np.ravel(tr_preds_np)]
+# tr_labels_array = np.r_[tr_labels_array, np.ravel(y_train.cpu())]
+# val_preds_array = np.r_[val_preds_array, np.ravel(val_preds_np)]
+# val_labels_array = np.r_[val_labels_array, np.ravel(y_val.cpu())]
+# # Use prediciont and target array to calculate macro F1
+# f1_tr = round(f1_score(y_true=tr_labels_array, y_pred=tr_preds_array, labels=np.unique(tr_labels_array), average='macro'), 4)
+# f1_val = round(f1_score(y_true=val_labels_array, y_pred=val_preds_array, labels=np.unique(val_labels_array), average='macro'), 4)
+# # f1_tr = round(f1_macro(tr_preds_np, tr_labels), 4)
+# # f1_val = round(f1_macro(val_preds_np, vl_labels), 4)
+# acc_tr = torch.round(acc(tr_preds, tr_labels), 4)
+# acc_val = torch.round(acc(val_preds, vl_labels), 4)
+# train_loss_batch = round(loss_train / self.BATCH_SIZE, 5)
+# val_loss_batch = round(loss_val / self.BATCH_SIZE, 5)
 
 # %%
