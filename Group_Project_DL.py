@@ -243,7 +243,8 @@ class ASLRecognition:
             #*****
 
             # Saving best performing model *****
-            if acc_val > best_validation_score or acc_val == 1.0000 and acc_tr == 1.0000:
+            if acc_val > best_validation_score or (acc_val == 1.0000 and acc_tr == 1.0000):
+                best_validation_score = acc_val
                 torch.save(model.state_dict(), self.SAVE_DIR)
                 print("**Model Saved**")
             # *****
