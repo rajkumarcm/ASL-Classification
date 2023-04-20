@@ -10,6 +10,7 @@ torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 from torch.utils.data import Dataset
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 import torchvision
 from torchvision import transforms
 from torchsummary import summary
@@ -22,6 +23,8 @@ import random
 from PIL import Image
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import f1_score
+from time import time
 INTERPOLATION_MODE = transforms.InterpolationMode.NEAREST
 
 
@@ -76,13 +79,13 @@ class ASLRecognition:
 
     def __init__(self):
         # dataset_dir = os.path.abspath('/Users/daqian.dang/Desktop/DATS 6303/Project/dataset5/')
-        DATA_DIR = r"C:\Users\Rajkumar\Downloads\ASL\dataset5\collated"
+        DATA_DIR = r"D:/GWU/DATS-6303/project/archive/dataset5/collated"
         # DATA_DIR = r"/home/ubuntu/ASL_Data/dataset5/collated"
         NUM_WORKERS = 8
         PREFETCH_FACTOR = 30
-        self.BATCH_SIZE = 1000
+        self.BATCH_SIZE = 64
         self.LR = 1e-3
-        self.N_EPOCHS = 10
+        self.N_EPOCHS = 100
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.le = LabelEncoder()
         self.IMG_SIZE = 100
@@ -163,9 +166,20 @@ class ASLRecognition:
         return model
 
     def fit(self, model):
+        start_time = time()
         optimizer = torch.optim.Adam(model.parameters(), lr=self.LR)
         criterion = torch.nn.CrossEntropyLoss().cuda()
         acc = Accuracy(task='multiclass', num_classes=self.N_CLASSES).to(self.device)
+        
+        # Initialize test loss threshold for early stopping and parameters to track *****
+        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=3, verbose=True) # I think mode should be min for loss?
+        early_stopping_patience = 20
+        current_patience = early_stopping_patience
+        early_stoping_sensitivity = 4
+        best_test_loss = round(1000000., early_stoping_sensitivity) # made this arbitrarily large so that the first round of training should always succeed
+        current_learning_rate = self.LR
+        #***** 
+        
         print("Starting training loop...")
         model.cuda()
         model.train()
@@ -191,23 +205,52 @@ class ASLRecognition:
                     vl_logits = model(imgs)
                     loss = criterion(vl_logits, vl_labels)
                     loss_val += loss.item()
-
-            print("Epoch {} | Train Loss {:.5f}, Train Acc {:.2f} - Test Loss {:.5f}, Test Acc {:.2f}".format(
-                epoch, loss_train / self.BATCH_SIZE, acc(torch.argmax(torch.nn.Softmax()(tr_logits), axis=1), tr_labels),
-                loss_val, acc(torch.argmax(torch.nn.Softmax()(vl_logits), axis=1), vl_labels)))
-
-            with torch.no_grad():
-                ts_pred = []
-                ts_labels = []
-                model.eval()
-                for i, (X_test, y_test) in enumerate(self.ts_loader):
-                    pred = torch.nn.Softmax()(model(X_test.to("cuda")))
-                    pred = np.argmax(pred.cpu().detach().numpy(), axis=1)
-                    ts_pred = np.r_[ts_pred, np.ravel(pred)]
-                    ts_labels = np.r_[ts_labels, np.ravel(y_test.cpu())]
-                f1_score(y_true=ts_labels, y_pred=ts_pred, labels=np.unique(ts_labels), average='macro')
-
-
+            print("Epoch {} | Train Loss {:.5f}, Train Acc {:.4f} - Validation Loss {:.5f}, Validation Acc {:.4f}".format(
+                epoch, loss_train / self.BATCH_SIZE, acc(torch.argmax(torch.nn.Softmax(dim=1)(tr_logits), axis=1), tr_labels),
+                loss_val, acc(torch.argmax(torch.nn.Softmax(dim=1)(vl_logits), axis=1), vl_labels)))
+        
+        
+            # EARLY STOPPING and LEARNING RATE SCHEDULING *****
+            # Check if the loss is going down
+            if round(loss_val, early_stoping_sensitivity) >= best_test_loss:
+                # If loss not decerasing, remove one level of patience and drop learning rate
+                current_patience -=1
+                print(f"early stopping validation loss check activated, early stopping patience remaing: {current_patience}")
+            else:
+                # If loss is decreasing, update lowest loss and reset ES patience
+                best_test_loss = loss_val
+                current_patience = early_stopping_patience
+            
+            # If ES patience exhausted, stop training and print ES message
+            if current_patience == 0:
+                print(f"early stopping implemented at Epoch {epoch}")
+                break
+            #*****
+            
+            # Include LR scheduler *****
+            scheduler.step(loss_val)
+            #*****
+        
+        print(f"Total time taken: {time()-start_time}")
+        
+    def test(self, model):
+        print("Starting testing...")
+        model.cuda()
+        model.eval()
+        with torch.no_grad():
+            ts_pred = []
+            ts_labels = []
+            model.eval()
+            for i, (X_test, y_test) in enumerate(self.ts_loader):
+                pred = torch.nn.Softmax(dim=1)(model(X_test.to("cuda")))
+                pred = np.argmax(pred.cpu().detach().numpy(), axis=1)
+                ts_pred = np.r_[ts_pred, np.ravel(pred)]
+                ts_labels = np.r_[ts_labels, np.ravel(y_test.cpu())]
+            f1 = f1_score(y_true=ts_labels, y_pred=ts_pred, labels=np.unique(ts_labels), average='macro')
+            # f1 = F1Score(task="multiclass", num_classes=24)
+            # f1_score = f1(ts_pred, ts_labels)
+            print(f'Test Set F1: {f1}')
+                
 if __name__ == "__main__":
     # random_image_samples(data, num_rows=4, num_columns=4)
     # random_image_samples(tr_data.tr_data, num_rows=4, num_columns=4)  # color images only
@@ -224,13 +267,6 @@ if __name__ == "__main__":
     asl = ASLRecognition()
     model = asl.model_def()
     asl.fit(model)
+    asl.test(model)
 
-
-
-
-
-
-
-
-
-
+# %%

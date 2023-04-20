@@ -6,7 +6,7 @@ from shutil import *
 
 #%%
 # DATA_DIR = r"C:\Users\Rajkumar\Downloads\ASL\dataset5"
-DATA_DIR = r"/home/ubuntu/ASL_Data/dataset5"
+DATA_DIR = r"D:/GWU/DATS-6303/project/archive/dataset5"
 COLLATED_DIR = join(DATA_DIR, "collated")
 #%%
 if "collated" in os.listdir(DATA_DIR):
@@ -39,3 +39,5 @@ for subject in subjects:
 
 
 
+
+# %%
