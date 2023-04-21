@@ -84,7 +84,7 @@ class ASLRecognition:
         # DATA_DIR = r"/home/ubuntu/ASL_Data/dataset5/collated"
         NUM_WORKERS = 8
         PREFETCH_FACTOR = 30
-        self.BATCH_SIZE = 512 # *****
+        self.BATCH_SIZE = 1000 # *****
         self.LR = 1e-4 # *****
         self.N_EPOCHS = 300 # *****
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -99,7 +99,7 @@ class ASLRecognition:
             # Vertical flip not required
             # transforms.RandomVerticalFlip(), #random vertical flip
             transforms.RandomRotation(15, interpolation=INTERPOLATION_MODE), #random rotation by 15 degrees
-            transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.3), # Color jitter
+            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2), # Color jitter
             transforms.ToTensor(), # transform to corvent the PIL image to a PyTorch tensor
             transforms.ConvertImageDtype(torch.float32) # scale image values by dividing them by 255
         ])
@@ -151,54 +151,54 @@ class ASLRecognition:
         last_input_shape = final_layer_img_size * final_layer_img_size * 64
         # new_test = DataLoader(test_dataset, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS, prefetch_factor=PREFETCH_FACTOR)
         model = torch.nn.Sequential(
-                torch.nn.Conv2d(3, 16, 3, padding='same', padding_mode='replicate'), # 56x56x16
+                torch.nn.Conv2d(3, 16, 5, padding='same', padding_mode='replicate'), # 56x56x16
                 torch.nn.ReLU(),
                 torch.nn.MaxPool2d((2, 2)),  # 28x28x16
                 
                 # *****
-                torch.nn.Dropout(0.2),
+                torch.nn.Dropout(0.3),
                 # *****
                 
-                torch.nn.Conv2d(16, 32, 3, padding='same', padding_mode='replicate',
+                torch.nn.Conv2d(16, 32, 5, padding='same', padding_mode='replicate',
                                 groups=2), # 28x28x32
                 torch.nn.ReLU(),
                 torch.nn.MaxPool2d((2, 2)),  # 14x14x32
                 
                 # *****
-                torch.nn.Dropout(0.2),
+                torch.nn.Dropout(0.3),
                 # *****
                 
-                torch.nn.Conv2d(32, 64, 3, padding='same', padding_mode='replicate',
+                torch.nn.Conv2d(32, 64, 5, padding='same', padding_mode='replicate',
                                 groups=2), # 14x14x64
                 torch.nn.ReLU(),
                 torch.nn.MaxPool2d((2, 2)),  # 7x7x64
                 
                 # *****
-                torch.nn.Dropout(0.2),
+                torch.nn.Dropout(0.3),
                 # *****
                 
                 torch.nn.Flatten(),
                 
                 # *****
                 torch.nn.Linear(last_input_shape, 128),
-                torch.nn.Linear(128, 64),
-                torch.nn.Dropout(0.2),
+                #torch.nn.Linear(128, 64),
+                torch.nn.Dropout(0.3),
                 # *****
                 
-                torch.nn.Linear(64, self.N_CLASSES)
+                torch.nn.Linear(128, self.N_CLASSES)
                 # Ignored Softmax since the loss has this integrated.
         )
         return model
 
     def fit(self, model):
         start_time = time()
-        optimizer = torch.optim.Adam(model.parameters(), lr=self.LR, weight_decay=0.01) # *****
+        optimizer = torch.optim.Adam(model.parameters(), lr=self.LR, weight_decay=0.001) # *****
         criterion = torch.nn.CrossEntropyLoss().cuda()
         acc = Accuracy(task='multiclass', num_classes=self.N_CLASSES).to(self.device)
         # f1_macro = F1Score(task='multiclass', num_classes=self.N_CLASSES, average='macro').to(self.device)
         
         # Initialize test loss threshold for early stopping and parameters to track *****
-        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=3, verbose=True) # I think mode should be min for loss?
+        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True) # I think mode should be min for loss?
         early_stopping_patience = 30          
         current_patience = early_stopping_patience
         early_stoping_sensitivity = 4
