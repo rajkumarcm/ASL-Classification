@@ -84,13 +84,13 @@ class ASLRecognition:
         # DATA_DIR = r"/home/ubuntu/ASL_Data/dataset5/collated"
         NUM_WORKERS = 8
         PREFETCH_FACTOR = 30
-        self.BATCH_SIZE = 1000 # *****
-        self.LR = 1e-4 # *****
+        self.BATCH_SIZE = 64 # *****
+        self.LR = 1e-3 # *****
         self.N_EPOCHS = 300 # *****
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.le = LabelEncoder()
         self.IMG_SIZE = 100
-        self.filename = "model_optimization_2.pt"
+        self.filename = "model_optimization_X.pt"
         self.SAVE_DIR = f"D:/GWU/DATS-6303/project/saved_models/{self.filename}"
         
         train_transforms = transforms.Compose([
@@ -310,6 +310,9 @@ if __name__ == "__main__":
     asl.test(model)
 
 #%%
+
+# Understanding Cross Entropy Calculation
+# https://medium.com/unpackai/cross-entropy-loss-in-ml-d9f22fc11fe0
 
 ####################
 ## CODE GRAVEYARD ##
