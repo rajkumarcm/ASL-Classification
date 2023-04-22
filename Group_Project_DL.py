@@ -25,6 +25,7 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import f1_score
 from time import time
+import random
 INTERPOLATION_MODE = transforms.InterpolationMode.NEAREST
 
 
@@ -47,6 +48,12 @@ class ImageDataset(Dataset):
         return image, label
 
 #%%
+
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
+
 class ASLRecognition:
     # Data augmentation
     #Define the data augmentation transforms for the training set
@@ -73,10 +80,10 @@ class ASLRecognition:
         total_labels = total_labels[indices]
         total_imgs = total_imgs[indices]
         df = pd.DataFrame({"img": total_imgs, "label": total_labels})
-        tr_data, ts_data, tr_labels, ts_labels = train_test_split(df, df.label, test_size=0.3, stratify=total_labels)
-        tr_data, vl_data, tr_labels, vl_labels = train_test_split(tr_data, tr_data.label, test_size=0.3, stratify=tr_labels)
+        tr_data, ts_data, tr_labels, ts_labels = train_test_split(df, df.label, test_size=0.3, stratify=total_labels, random_state=self.random_seed)
+        tr_data, vl_data, tr_labels, vl_labels = train_test_split(tr_data, tr_data.label, test_size=0.3, stratify=tr_labels, random_state=self.random_seed)
         return tr_data, vl_data, ts_data, tr_labels, vl_labels, ts_labels
-
+    
     def __init__(self):
         # dataset_dir = os.path.abspath('/Users/daqian.dang/Desktop/DATS 6303/Project/dataset5/')
         
@@ -86,12 +93,26 @@ class ASLRecognition:
         PREFETCH_FACTOR = 30
         self.BATCH_SIZE = 64 # *****
         self.LR = 1e-3 # *****
-        self.N_EPOCHS = 300 # *****
+        self.N_EPOCHS = 10 # *****
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.le = LabelEncoder()
         self.IMG_SIZE = 100
         self.filename = "model_optimization_X.pt"
         self.SAVE_DIR = f"D:/GWU/DATS-6303/project/saved_models/{self.filename}"
+        self.random_seed = 3388
+        
+        # Setup for reproducability *****
+        os.environ['PYTHONHASHSEED'] = str(self.random_seed)
+        torch.manual_seed(self.random_seed)
+        torch.cuda.manual_seed(self.random_seed)
+        # torch.use_deterministic_algorithms(True)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+        random.seed(self.random_seed)
+        np.random.seed(self.random_seed)
+        g = torch.Generator()
+        g.manual_seed(self.random_seed)
+        # *****
         
         train_transforms = transforms.Compose([
             transforms.Resize((self.IMG_SIZE, self.IMG_SIZE), interpolation=INTERPOLATION_MODE), #resize 224*224
@@ -118,13 +139,13 @@ class ASLRecognition:
 
         self.N_CLASSES = len(tr_data.label.unique())
         self.tr_loader = DataLoader(tr_dset, batch_size=self.BATCH_SIZE, num_workers=NUM_WORKERS,
-                                    prefetch_factor=PREFETCH_FACTOR)
+                                    prefetch_factor=PREFETCH_FACTOR, worker_init_fn=seed_worker, generator=g)
         self.vl_loader = DataLoader(vl_dset, batch_size=self.BATCH_SIZE, num_workers=NUM_WORKERS,
-                                    prefetch_factor=PREFETCH_FACTOR)
+                                    prefetch_factor=PREFETCH_FACTOR, worker_init_fn=seed_worker, generator=g)
         # for i, (X_tmp, y_tmp) in enumerate(vl_dset):
         #     print(i)
         self.ts_loader = DataLoader(ts_dset, batch_size=self.BATCH_SIZE, num_workers=NUM_WORKERS,
-                                    prefetch_factor=PREFETCH_FACTOR)
+                                    prefetch_factor=PREFETCH_FACTOR, worker_init_fn=seed_worker, generator=g)
 
 
     def random_image_samples(self, data, num_rows=4, num_columns=4):
@@ -273,8 +294,10 @@ class ASLRecognition:
                 
         print(f"Total time taken: {time()-start_time}")
         
-    def test(self, model):
+    def test(self, model, used_saved=False):
         print("Starting testing...")
+        if used_saved == True:
+            model.load_state_dict(torch.load(self.SAVE_DIR))
         model.cuda()
         model.eval()
         with torch.no_grad():
@@ -307,7 +330,8 @@ if __name__ == "__main__":
     asl = ASLRecognition()
     model = asl.model_def()
     asl.fit(model)
-    asl.test(model)
+    # asl.test(model, used_saved=False)
+    asl.test(model, used_saved=True)
 
 #%%
 
