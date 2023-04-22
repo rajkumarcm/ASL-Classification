@@ -202,7 +202,7 @@ class ASLRecognition:
                 
                 # *****
                 torch.nn.Linear(last_input_shape, 128),
-                #torch.nn.Linear(128, 64),
+                torch.nn.ReLU(),
                 torch.nn.Dropout(0.3),
                 # *****
                 
