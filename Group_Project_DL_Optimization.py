@@ -174,7 +174,7 @@ class ASLRecognition:
         best_model = None
         best_results = None
 
-        optimizer = torch.optim.Adam(model.parameters(), lr=self.LR, weight_decay=0.001)  # Add L1
+        optimizer = torch.optim.Adam(model.parameters(), lr=self.LR, weight_decay=0.001)  # Add L1 regularization
         criterion = torch.nn.CrossEntropyLoss().cuda()
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.5, patience=5, verbose=True)
         acc = Accuracy(task='multiclass', num_classes=self.N_CLASSES).to(self.device)
