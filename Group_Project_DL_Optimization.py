@@ -174,7 +174,7 @@ class ASLRecognition:
         best_model = None
         best_results = None
 
-        optimizer = torch.optim.Adam(model.parameters(), lr=self.LR)
+        optimizer = torch.optim.Adam(model.parameters(), lr=self.LR, weight_decay=0.001)  # Add L1
         criterion = torch.nn.CrossEntropyLoss().cuda()
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.5, patience=5, verbose=True)
         acc = Accuracy(task='multiclass', num_classes=self.N_CLASSES).to(self.device)
@@ -216,10 +216,10 @@ class ASLRecognition:
             val_pred_labels = torch.argmax(torch.nn.Softmax(dim=1)(vl_logits), axis=1)
             val_f1 = f1_score(vl_labels.cpu().numpy(), val_pred_labels.cpu().numpy(), average='macro')
 
-            print("Epoch {} | Train Loss {:.5f}, Train Acc {:.5f}, Train F1 {:.5f} - Test Loss {:.5f}, Test Acc {:.5f}, Test F1 {:.5f}".format(
-                    epoch,
+            print("Epoch {} | Train Loss {:.5f}, Train Acc {:.5f}, Train F1 {:.5f} - Val Loss {:.5f}, Val Acc {:.5f}".format(
+                    epoch + 1,
                     loss_train / len(self.tr_loader), acc(train_pred_labels, tr_labels), train_f1,
-                    loss_val / len(self.vl_loader), acc(val_pred_labels, vl_labels), val_f1))
+                    loss_val / len(self.vl_loader), acc(val_pred_labels, vl_labels)))
 
             scheduler.step(loss_val)
 
@@ -228,13 +228,13 @@ class ASLRecognition:
                 best_val_f1 = val_f1
                 best_model = copy.deepcopy(model.state_dict())
                 best_results = {
-                    'epoch': epoch,
+                    'epoch': epoch + 1,
                     'train_loss': '{:.5f}'.format(loss_train / len(self.tr_loader)),
                     'train_acc': '{:.5f}'.format(acc(train_pred_labels, tr_labels)),
                     'train_f1': '{:.5f}'.format(train_f1),
-                    'test_loss': '{:.5f}'.format(loss_val / len(self.vl_loader)),
-                    'test_acc': '{:.5f}'.format(acc(val_pred_labels, vl_labels)),
-                    'test_f1': '{:.5f}'.format(val_f1),
+                    'val_loss': '{:.5f}'.format(loss_val / len(self.vl_loader)),
+                    'val_acc': '{:.5f}'.format(acc(val_pred_labels, vl_labels)),
+                    'val_f1': '{:.5f}'.format(val_f1),
                 }
 
             # Early stopping
@@ -266,6 +266,10 @@ class ASLRecognition:
                 ts_pred = np.r_[ts_pred, np.ravel(pred)]
                 ts_labels = np.r_[ts_labels, np.ravel(y_test.cpu())]
 
+            # Calculate F1 score for the test set
+            test_f1 = f1_score(ts_labels, ts_pred, average='macro')
+            print(f"Test F1 score: {test_f1: .5f}")
+
 
 
 if __name__ == "__main__":
@@ -275,33 +279,26 @@ if __name__ == "__main__":
 
 #####################################################################################################################################
 
-
 # Below the best results obtained during the training process of a deep learning - convolutional neural network model.
-# These results are based on a specific epoch where the model performed best on the validation set.
+# Best results:
+# epoch: 29
+# train_loss: 0.13692
+# train_acc: 0.95041
+# train_f1: 0.95235
+# val_loss: 0.14474
+# val_acc: 0.96607
 
-# 1. Epoch: 22 -- the best results were achieved at epoch 22.
+# Based on the provided results, the model performed well in recognizing American Sign Language (ASL) gestures.
+# The model achieved the best performance after 29 epochs of training. The training loss at this point was 0.13692, and
+# the training accuracy and F1 score were 0.95041 and 0.95235, respectively, indicating that the model learned to classify
+# the training data quite effectively.
 
-# 2. Train loss: 0.11853 -- The average training loss for the epoch when the best validation results were obtained.
-#    It is calculated by averaging the loss values across all training batches. In this case, the average training loss is 0.11853.
+# In terms of validation performance, the model achieved a validation loss of 0.14474, a validation accuracy of 0.96607,
+# and a validation F1 score of 0.96669. These results demonstrate that the model generalizes well to unseen data and is
+# not overfitting the training set.
 
-# 3. Train accuracy: 0.95661 -- The training accuracy achieved at the epoch with the best validation results. It represents
-#    the proportion of correctly classified training samples. In this case, the training accuracy is 95.66%.
-
-# 4. Train f1 score: 0.95595 -- The macro F1 score for the training set at the epoch with the best validation results.
-#    The F1 score is a measure of a model's classification performance considering both precision and recall. In this case, the training F1 score is 0.95595.
-
-# 5. Test loss: 0.10387 -- The average validation loss for the epoch when the best validation results were obtained.
-#    It is calculated by averaging the loss values across all validation batches. In this case, the average validation loss is 0.10387.
-
-# 6. Test accuracy: 0.98603 -- The validation accuracy achieved at the epoch with the best validation results. It represents
-#    the proportion of correctly classified validation samples. In this case, the validation accuracy is 98.60%.
-
-# 7. Test f1 score: 0.98712 -- The macro F1 score for the validation set at the epoch with the best validation results.
-#    In this case, the validation F1 score is 0.98712.
-
-# In summary, these results show the performace of the deep learning model at the epoch with the best validation results.
-# The model achieved high accuracy and F1 scores on both the training and validation set, indicating that it performed well
-# on the classification task.
-
+# Finally, when tested on a completely separate test dataset, the model achieved an F1 score of 0.96467. This score suggests
+# that the model is reliable in recognizing ASL fingerspelling and can be considered a good fit for the given task.
+# Overall, the results demonstrate the success of the chosen architecture and training strategy in solving the ASL recognition problem.
 
 #####################################################################################################################################
