@@ -93,11 +93,11 @@ class ASLRecognition:
         PREFETCH_FACTOR = 30
         self.BATCH_SIZE = 64 # *****
         self.LR = 1e-3 # *****
-        self.N_EPOCHS = 10 # *****
+        self.N_EPOCHS = 300 # *****
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.le = LabelEncoder()
         self.IMG_SIZE = 100
-        self.filename = "model_optimization_X.pt"
+        self.filename = "model_optimization_5.pt"
         self.SAVE_DIR = f"D:/GWU/DATS-6303/project/saved_models/{self.filename}"
         self.random_seed = 3388
         
