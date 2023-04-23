@@ -288,7 +288,7 @@ if __name__ == "__main__":
 # val_loss: 0.14474
 # val_acc: 0.96607
 
-# Based on the provided results, the model performed well in recognizing American Sign Language (ASL) gestures.
+# Based on the provided results, the model performed well in recognizing American Sign Language (ASL) fingerspelling.
 # The model achieved the best performance after 29 epochs of training. The training loss at this point was 0.13692, and
 # the training accuracy and F1 score were 0.95041 and 0.95235, respectively, indicating that the model learned to classify
 # the training data quite effectively.
