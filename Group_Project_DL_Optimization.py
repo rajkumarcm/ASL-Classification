@@ -86,6 +86,7 @@ class ASLRecognition:
         self.le = LabelEncoder()
         self.IMG_SIZE = 100
 
+        # Define the data augmentation transforms for the train set
         train_transforms = transforms.Compose([
             transforms.Resize((self.IMG_SIZE, self.IMG_SIZE), interpolation=INTERPOLATION_MODE),  # resize 224*224
             transforms.RandomHorizontalFlip(),  # random horizontal flip
@@ -174,7 +175,7 @@ class ASLRecognition:
         best_model = None
         best_results = None
 
-        optimizer = torch.optim.Adam(model.parameters(), lr=self.LR, weight_decay=0.001)  # Add L1 regularization
+        optimizer = torch.optim.Adam(model.parameters(), lr=self.LR, weight_decay=0.001)  # Add L2 Regularization
         criterion = torch.nn.CrossEntropyLoss().cuda()
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.5, patience=5, verbose=True)
         acc = Accuracy(task='multiclass', num_classes=self.N_CLASSES).to(self.device)
@@ -211,14 +212,13 @@ class ASLRecognition:
                     loss_val += loss.item()
 
             train_pred_labels = torch.argmax(torch.nn.Softmax(dim=1)(tr_logits), axis=1)
-            train_f1 = f1_score(tr_labels.cpu().numpy(), train_pred_labels.cpu().numpy(), average='macro')
 
             val_pred_labels = torch.argmax(torch.nn.Softmax(dim=1)(vl_logits), axis=1)
             val_f1 = f1_score(vl_labels.cpu().numpy(), val_pred_labels.cpu().numpy(), average='macro')
 
-            print("Epoch {} | Train Loss {:.5f}, Train Acc {:.5f}, Train F1 {:.5f} - Val Loss {:.5f}, Val Acc {:.5f}".format(
+            print("Epoch {} | Train Loss {:.5f}, Train Acc {:.5f} - Val Loss {:.5f}, Val Acc {:.5f}".format(
                     epoch + 1,
-                    loss_train / len(self.tr_loader), acc(train_pred_labels, tr_labels), train_f1,
+                    loss_train / len(self.tr_loader), acc(train_pred_labels, tr_labels),
                     loss_val / len(self.vl_loader), acc(val_pred_labels, vl_labels)))
 
             scheduler.step(loss_val)
@@ -231,7 +231,6 @@ class ASLRecognition:
                     'epoch': epoch + 1,
                     'train_loss': '{:.5f}'.format(loss_train / len(self.tr_loader)),
                     'train_acc': '{:.5f}'.format(acc(train_pred_labels, tr_labels)),
-                    'train_f1': '{:.5f}'.format(train_f1),
                     'val_loss': '{:.5f}'.format(loss_val / len(self.vl_loader)),
                     'val_acc': '{:.5f}'.format(acc(val_pred_labels, vl_labels)),
                     'val_f1': '{:.5f}'.format(val_f1),
@@ -278,20 +277,18 @@ if __name__ == "__main__":
     asl.fit(model)
 
 #####################################################################################################################################
-
 # Below the best results obtained during the training process of a deep learning - convolutional neural network model.
 # Best results:
 # epoch: 29
 # train_loss: 0.13692
 # train_acc: 0.95041
-# train_f1: 0.95235
 # val_loss: 0.14474
 # val_acc: 0.96607
+# Test F1 score: 0.96467
 
 # Based on the provided results, the model performed well in recognizing American Sign Language (ASL) fingerspelling.
 # The model achieved the best performance after 29 epochs of training. The training loss at this point was 0.13692, and
-# the training accuracy and F1 score were 0.95041 and 0.95235, respectively, indicating that the model learned to classify
-# the training data quite effectively.
+# the training accuracy score was 0.95041, indicating that the model learned to classify the training data quite effectively.
 
 # In terms of validation performance, the model achieved a validation loss of 0.14474, a validation accuracy of 0.96607,
 # and a validation F1 score of 0.96669. These results demonstrate that the model generalizes well to unseen data and is
