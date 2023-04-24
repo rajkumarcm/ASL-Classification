@@ -14,6 +14,7 @@ import torchvision
 from torchvision import transforms
 from torchsummary import summary
 from torchmetrics import Accuracy, F1Score
+from sklearn.metrics import f1_score
 import re
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -206,6 +207,7 @@ class ASLRecognition:
                     ts_pred = np.r_[ts_pred, np.ravel(pred)]
                     ts_labels = np.r_[ts_labels, np.ravel(y_test.cpu())]
                 f1_score(y_true=ts_labels, y_pred=ts_pred, labels=np.unique(ts_labels), average='macro')
+                # f1_score(y_true=ts_labels, y_pred=ts_pred, labels=np.unique(ts_labels), average='macro')
 
 
 if __name__ == "__main__":
@@ -223,6 +225,7 @@ if __name__ == "__main__":
     # plt.show()
     asl = ASLRecognition()
     model = asl.model_def()
+    # f1_score = F1Score(task='multiclass', num_classes=asl.N_CLASSES)
     asl.fit(model)
 
 
