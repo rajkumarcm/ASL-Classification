@@ -54,6 +54,23 @@ def seed_worker(worker_id):
     np.random.seed(worker_seed)
     random.seed(worker_seed)
 
+
+class ConvBlock(torch.nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size=(3,3), groups=2):
+        super(ConvBlock, self).__init__()
+        self.bn = torch.nn.BatchNorm2d(in_channels)
+        self.conv = torch.nn.Conv2d(in_channels, out_channels, groups=groups,
+                                    kernel_size=kernel_size, padding='valid', padding_mode='reflect')
+        self.mp = torch.nn.MaxPool2d((2,2))
+        self.h_act = torch.nn.ReLU()
+
+    def forward(self, inputs):
+        X = self.bn(inputs)
+        X = self.conv(X)
+        X = self.h_act(X)
+        X = self.mp(X)
+        return X
+
 class ASLRecognition:
     # Data augmentation
     #Define the data augmentation transforms for the training set
@@ -87,18 +104,21 @@ class ASLRecognition:
     def __init__(self):
         # dataset_dir = os.path.abspath('/Users/daqian.dang/Desktop/DATS 6303/Project/dataset5/')
         
-        DATA_DIR = r"D:/GWU/DATS-6303/project/archive/dataset5/collated"
+        # DATA_DIR = r"D:/GWU/DATS-6303/project/archive/dataset5/collated"
         # DATA_DIR = r"/home/ubuntu/ASL_Data/dataset5/collated"
-        NUM_WORKERS = 8
-        PREFETCH_FACTOR = 30
-        self.BATCH_SIZE = 64 # *****
+        DATA_DIR = r"C:\Users\Rajkumar\Downloads\ASL\dataset5\collated"
+        NUM_WORKERS = 10
+        PREFETCH_FACTOR = 100
+        self.BATCH_SIZE = 100 # *****
         self.LR = 1e-3 # *****
-        self.N_EPOCHS = 300 # *****
+        self.N_EPOCHS = 40 # *****
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.le = LabelEncoder()
         self.IMG_SIZE = 100
         self.filename = "model_optimization_5.pt"
-        self.SAVE_DIR = f"D:/GWU/DATS-6303/project/saved_models/{self.filename}"
+        # self.SAVE_DIR = f"D:/GWU/DATS-6303/project/saved_models/{self.filename}"
+        # self.SAVE_DIR = f"/home/ubuntu/ASL_Data/saved_models/{self.filename}"
+        self.SAVE_DIR = r"C:\Users\Rajkumar\Downloads\ASL\saved_models\{}".format(self.filename)
         self.random_seed = 3388
         
         # Setup for reproducability *****
@@ -172,43 +192,15 @@ class ASLRecognition:
         last_input_shape = final_layer_img_size * final_layer_img_size * 64
         # new_test = DataLoader(test_dataset, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS, prefetch_factor=PREFETCH_FACTOR)
         model = torch.nn.Sequential(
-                torch.nn.Conv2d(3, 16, 5, padding='same', padding_mode='replicate'), # 56x56x16
-                torch.nn.ReLU(),
-                torch.nn.MaxPool2d((2, 2)),  # 28x28x16
-                
-                # *****
-                torch.nn.Dropout(0.3),
-                # *****
-                
-                torch.nn.Conv2d(16, 32, 5, padding='same', padding_mode='replicate',
-                                groups=2), # 28x28x32
-                torch.nn.ReLU(),
-                torch.nn.MaxPool2d((2, 2)),  # 14x14x32
-                
-                # *****
-                torch.nn.Dropout(0.3),
-                # *****
-                
-                torch.nn.Conv2d(32, 64, 5, padding='same', padding_mode='replicate',
-                                groups=2), # 14x14x64
-                torch.nn.ReLU(),
-                torch.nn.MaxPool2d((2, 2)),  # 7x7x64
-                
-                # *****
-                torch.nn.Dropout(0.3),
-                # *****
-                
-                torch.nn.Flatten(),
-                
-                # *****
-                torch.nn.Linear(last_input_shape, 128),
-                torch.nn.ReLU(),
-                torch.nn.Dropout(0.3),
-                # *****
-                
-                torch.nn.Linear(128, self.N_CLASSES)
-                # Ignored Softmax since the loss has this integrated.
+            ConvBlock(3, 16, (5, 5), groups=1),  # 100x100x3 -> 96x96x16 -> 48x48x16
+            ConvBlock(16, 32),  # 48x48x16 -> 46x46x32 -> 23x23x32
+            ConvBlock(32, 64),  # 23x23x32 -> 21x21x64 -> 10x10x64
+            torch.nn.Flatten(),  # Nx6400
+            torch.nn.Linear(6400, self.N_CLASSES)  # Nx24
         )
+
+        model.cuda()
+        print(summary(model.cuda(), (3, 100, 100)))
         return model
 
     def fit(self, model):
@@ -313,7 +305,8 @@ class ASLRecognition:
             # f1 = F1Score(task="multiclass", num_classes=24)
             # f1_score = f1(ts_pred, ts_labels)
             print(f'Test Set F1: {f1}')
-                
+
+
 if __name__ == "__main__":
     # random_image_samples(data, num_rows=4, num_columns=4)
     # random_image_samples(tr_data.tr_data, num_rows=4, num_columns=4)  # color images only
@@ -332,6 +325,7 @@ if __name__ == "__main__":
     asl.fit(model)
     # asl.test(model, used_saved=False)
     asl.test(model, used_saved=True)
+
 
 #%%
 
