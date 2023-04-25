@@ -205,7 +205,7 @@ class ASLRecognition:
 
     def fit(self, model):
         start_time = time()
-        optimizer = torch.optim.Adam(model.parameters(), lr=self.LR, weight_decay=0.001) # *****
+        optimizer = torch.optim.Adam(model.parameters(), lr=self.LR) # *****
         criterion = torch.nn.CrossEntropyLoss().cuda()
         acc = Accuracy(task='multiclass', num_classes=self.N_CLASSES).to(self.device)
         # f1_macro = F1Score(task='multiclass', num_classes=self.N_CLASSES, average='macro').to(self.device)
