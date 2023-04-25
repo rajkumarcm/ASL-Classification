@@ -48,3 +48,13 @@
     # asl.fit(model)
     # asl.test(model, used_saved=False)
     asl.test(model, used_saved=True)
+
+<br>
+
+## 6. Making personal changes to the model
+-If you desire to make changes to and experiment with the model, you can find most of the **hyperparamters** from lines *107-122*  
+-**Augmentation** transformations are at lines *138-145*  
+-**Model architecture** is at lines *190-199*  
+-The **optimization** type is on line *208*, along with **L2 regularization**  
+-The **performance index** is on line *209*  
+-**Early stopping** and **LR scheduling** details are from lines *214-220*  
