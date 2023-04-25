@@ -322,7 +322,7 @@ if __name__ == "__main__":
     # plt.show()
     asl = ASLRecognition()
     model = asl.model_def()
-    # asl.fit(model)
+    asl.fit(model)
     # asl.test(model, used_saved=False)
     asl.test(model, used_saved=True)
 
