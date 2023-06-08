@@ -1,4 +1,4 @@
-# ASL-to-Text-Transcription
+# ASL Classification
 
 ## Overview
 The purpose of this project was to do a proof of concept in using machine learning to accurtely identify American Sign Language (ASL).  
